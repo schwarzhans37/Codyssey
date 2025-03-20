@@ -49,12 +49,3 @@ markdown_content = """# 텍스트 파일 vs 이진 파일
 
 ---
 
-"""
-
-# 마크다운 파일 저장
-try:
-    with open("text_vs_binary.md", "w", encoding="utf-8") as f:
-        f.write(markdown_content)
-    print("✅ text_vs_binary.md 파일이 생성되었습니다!")
-except Exception as e:
-    print(f"❌ 파일 저장 중 오류 발생: {e}")
