@@ -6,7 +6,7 @@ def read_csv_file(filename):
             lines = file.readlines()
             
             # [수행과제 1] 파일 내용 출력
-            print(' ===== 📄 {filename} 내용 출력 ====== ')
+            print(f' ===== 📄 {filename} 내용 출력 ====== ')
             for line in lines:
                 print(line.strip())
                 
@@ -16,7 +16,7 @@ def read_csv_file(filename):
             # 헤더 제외 리스트 변환
             for line in lines[1:]:
                 items = line.strip().split(',')
-                items[-1] = float(items[-1])
+                items[-1] = float(items[-1]) # 마지막 요소(리스트 맨 끝값 == 인화성 지수)를 float 타입으로 변환
                 inven_list.append(items)
                 
         # 여기서 return이 필요한 이유 : 데이터를 반환해 줘야 다른 곳에서 사용가능, 단순히 열고 출력만 할 때는 생략해도 됨
@@ -42,7 +42,7 @@ def save_csv_file(filename, header, data):
             for item in data:
                 f.write(','.join(map(str, item)) + '\n')
                 
-        print('===== {filename} 저장 완료. =====')
+        print(f'===== {filename} 저장 완료. =====')
         
     except PermissionError:
         print(f' 파일 {filename} 저장 권한이 없습니다.')
@@ -56,10 +56,10 @@ def save_binary_file(filename, data):
     try:
         with open(filename,'wb') as f:
             for item in data:
-                line = ','.join(map(str,item)) + '\n'
+                line = ','.join(map(str,item)) + '\n' #join 함수는 문자열끼리만 결합 가능 => map(str,)을 통해 item의 숫자들까지 문자열로 변환환
                 f.write(line.encode('utf-8'))
                 
-        print('===== {filename} 파일 저장 완료 =====')
+        print(f'===== {filename} 파일 저장 완료 =====')
         
     except PermissionError:
         print(f'파일 {filename} 저장 권한이 없습니다.')
@@ -73,7 +73,7 @@ def read_binary_file(filename):
     try:
         with open(filename, 'rb') as f:
             content =f.read().decode('utf-8')
-            print('===== {filename} 내용 출력 =====')
+            print(f'===== {filename} 내용 출력 =====')
             print(content, ' ----- 리스트업 종료 -----')
             
     except FileNotFoundError:
