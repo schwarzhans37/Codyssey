@@ -19,6 +19,7 @@ yellow
 purple
 galaxy
 planet
+love
 coffee
 cookie
 friend
@@ -41,6 +42,7 @@ rocket
 walnut
 vacuum
 violet
+key
 engine
 signal
 memory
@@ -58,6 +60,7 @@ trust
 think
 world
 watch
+secret
 wheel
 queen
 joker
