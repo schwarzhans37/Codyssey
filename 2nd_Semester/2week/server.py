@@ -1,97 +1,133 @@
-import http.server
-import socketserver
-import datetime
-import json
-import urllib.request
+import socket
+import threading
 
-# 서버의 포트 번호를 상수로 정의
-PORT = 8080
+# 서버 설정
+HOST = '127.0.0.1'
+PORT = 9999
 
-class MyHttpRequestHandler(http.server.BaseHTTPRequestHandler):
-    """
-    HTTP 요청을 처리하는 커스텀 핸들러 클래스.
-    BaseHTTPRequestHandler를 상속받아 GET 요청을 처리합니다.
-    """
-    def do_GET(self):
-        """
-        클라이언트로부터 GET 요청을 받았을 때 호출되는 메서드.
-        """
-        # 7-1) 접속 시간 기록
-        access_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        
-        # 7-2) 접속한 클라이언트의 IP 주소 기록
-        client_ip = self.client_address[0]
-        
-        # 7. 서버 쪽에 접속 정보 출력
-        print(f'접속 시간: {access_time}')
-        print(f'클라이언트 IP 주소: {client_ip}')
+# 클라이언트 소켓을 관리하는 리스트
+clients = []
+# 클라이언트 주소와 사용자 이름을 매핑하는 딕셔너리
+client_info = {}
 
-        # 보너스 과제: 접속 IP 기반 위치 정보 확인
-        self.get_location_from_ip(client_ip)
-        print('-' * 40)
 
-        # 요청 경로가 루트('/')일 경우 index.html을 제공
-        if self.path == '/':
-            try:
-                # 6. index.html 파일의 내용을 읽기
-                with open('index.html', 'rb') as file:
-                    content = file.read()
-                
-                # 4. 성공 응답 (200) 헤더 전송
-                self.send_response(200)
-                self.send_header('Content-type', 'text/html; charset=utf-8')
-                self.end_headers()
-                
-                # 6. 읽어온 파일 내용을 클라이언트에게 전송
-                self.wfile.write(content)
-
-            except FileNotFoundError:
-                # 파일을 찾을 수 없을 때 404 에러 응답
-                self.send_error(404, 'File Not Found: index.html')
-        else:
-            # 다른 경로 요청 시 404 에러 응답
-            self.send_error(404, f'File Not Found: {self.path}')
-
-    def get_location_from_ip(self, ip_address):
-        """
-        IP 주소를 기반으로 위치 정보를 조회하고 출력하는 함수. (보너스 과제)
-        """
-        # 로컬호스트 등 사설 IP의 경우 조회하지 않음
-        if ip_address == '127.0.0.1' or ip_address.startswith('192.168.'):
-            print('위치 정보: 로컬 또는 사설 IP 주소입니다.')
-            return
-
-        # 외부 API를 사용하여 위치 정보 조회 (별도 라이브러리 없이 기본 기능만 사용)
+def broadcast(message, sender_socket=None):
+    """서버에 접속된 모든 클라이언트에게 메시지를 전송합니다."""
+    for client_socket in clients:
         try:
-            api_url = f'http://ip-api.com/json/{ip_address}'
-            with urllib.request.urlopen(api_url) as response:
-                data = json.loads(response.read().decode())
-                
-                if data['status'] == 'success':
-                    country = data.get('country', 'N/A')
-                    city = data.get('city', 'N/A')
-                    isp = data.get('isp', 'N/A')
-                    print(f'위치 정보: {country}, {city}')
-                    print(f'ISP 정보: {isp}')
+            client_socket.send(message)
+        except:
+            # 오류 발생 시 해당 클라이언트 제거
+            remove_client(client_socket)
+
+
+def whisper(sender_name, receiver_name, message):
+    """특정 클라이언트에게 귓속말 메시지를 전송합니다."""
+    sender_socket = None
+    receiver_socket = None
+
+    for sock, info in client_info.items():
+        if info['name'] == sender_name:
+            sender_socket = sock
+        if info['name'] == receiver_name:
+            receiver_socket = sock
+
+    if receiver_socket:
+        try:
+            whisper_message = f'[귓속말] {sender_name} > {message}'.encode('utf-8')
+            receiver_socket.send(whisper_message)
+            # 보낸 사람에게도 확인 메시지 전송
+            if sender_socket:
+                sender_socket.send(f'[{receiver_name}님에게 귓속말을 보냈습니다.]'.encode('utf-8'))
+        except:
+            remove_client(receiver_socket)
+    else:
+        if sender_socket:
+            sender_socket.send(f'[{receiver_name}님을 찾을 수 없습니다.]'.encode('utf-8'))
+
+
+def handle_client(client_socket, addr):
+    """클라이언트로부터 메시지를 받고 처리하는 함수 (쓰레드에서 실행)"""
+    # 사용자 이름 요청 및 설정
+    client_socket.send('사용할 이름을 입력하세요: '.encode('utf-8'))
+    user_name = client_socket.recv(1024).decode('utf-8').strip()
+    client_info[client_socket] = {'addr': addr, 'name': user_name}
+
+    # 입장 메시지 전체 클라이언트에게 전송
+    enter_message = f'[{user_name}님이 입장하셨습니다.]'
+    print(enter_message)
+    broadcast(enter_message.encode('utf-8'))
+
+    while True:
+        try:
+            message = client_socket.recv(1024).decode('utf-8')
+            if not message:
+                break
+
+            if message.lower() == '/종료':
+                break
+
+            if message.startswith('/w '):
+                parts = message.split(' ', 2)
+                if len(parts) == 3:
+                    receiver_name = parts[1]
+                    whisper_message = parts[2]
+                    whisper(user_name, receiver_name, whisper_message)
                 else:
-                    print('위치 정보를 조회하지 못했습니다.')
+                    client_socket.send('[사용법: /w 받는사람 메시지]'.encode('utf-8'))
+            else:
+                # 전체 메시지 전송
+                full_message = f'{user_name}> {message}'
+                print(full_message)
+                broadcast(full_message.encode('utf-8'))
 
-        except Exception as e:
-            print(f'위치 정보 조회 중 오류 발생: {e}')
-            
+        except ConnectionResetError:
+            break
+        except:
+            print(f'오류 발생: {addr}')
+            break
 
-def run_server():
-    """
-    서버를 실행하는 함수.
-    """
-    # 1. HTTP 통신을 담당할 서버 객체 생성
-    # 3. 8080 포트 사용
-    with socketserver.TCPServer(('', PORT), MyHttpRequestHandler) as httpd:
-        print(f'서버가 {PORT} 포트에서 실행 중입니다...')
-        print('웹 브라우저에서 http://localhost:8080 으로 접속하세요.')
-        
-        # 서버가 종료될 때까지 계속 요청을 처리
-        httpd.serve_forever()
+    # 클라이언트 연결 종료 처리
+    remove_client(client_socket)
+    leave_message = f'[{user_name}님이 퇴장하셨습니다.]'
+    print(leave_message)
+    broadcast(leave_message.encode('utf-8'))
+    client_socket.close()
+
+
+def remove_client(client_socket):
+    """클라이언트 목록에서 특정 클라이언트를 제거합니다."""
+    if client_socket in clients:
+        clients.remove(client_socket)
+    if client_socket in client_info:
+        del client_info[client_socket]
+
+
+def start_server():
+    """서버를 시작하고 클라이언트의 접속을 대기합니다."""
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    server_socket.bind((HOST, PORT))
+    server_socket.listen()
+
+    print(f'서버가 {HOST}:{PORT}에서 시작되었습니다.')
+
+    while True:
+        try:
+            client_socket, addr = server_socket.accept()
+            clients.append(client_socket)
+            print(f'새로운 클라이언트 접속: {addr}')
+
+            # 클라이언트 처리를 위한 쓰레드 시작
+            thread = threading.Thread(target=handle_client, args=(client_socket, addr))
+            thread.daemon = True  # 주 프로그램 종료 시 쓰레드도 함께 종료
+            thread.start()
+        except KeyboardInterrupt:
+            print('서버를 종료합니다.')
+            break
+
+    server_socket.close()
+
 
 if __name__ == '__main__':
-    run_server()
+    start_server()
