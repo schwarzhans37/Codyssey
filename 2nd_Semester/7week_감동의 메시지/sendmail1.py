@@ -7,8 +7,8 @@ from tkinter import filedialog
 import csv
 
 # ---------- 지난 주 처럼 Google 계정이 발신자인 경우 상정 ----------
-SENDER_EMAIL = 'camilehan0307@gmail.com'
-APP_PASSWORD = 'qhhr sfhh iisn vshq'
+SENDER_EMAIL = '발신할 본인 계정'
+APP_PASSWORD = '구글용 앱 비밀번호'
 
 CSV_FILENAME = 'mail_target_list.csv'
 # ----------------------------------------------------------------

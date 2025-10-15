@@ -8,8 +8,8 @@ import csv
 import time
 ''
 # ---------- 지난 주 처럼 Google 계정이 발신자인 경우 상정 ----------
-SENDER_EMAIL = 'seungmin0307@naver.com'
-SENDER_PASSWORD = 'X3F4UE767K2L'
+SENDER_EMAIL = '발신할 본인 계정'
+SENDER_PASSWORD = '네이버용 앱 비밀번호'
 
 # SMTP 서버 정보
 SMTP_SERVER = 'smtp.naver.com'
