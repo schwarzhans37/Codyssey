@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FastAPI 질문 게시판</title>
+    <style>
+        /* 기본 스타일 */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #f4f7f6;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            padding: 20px 30px;
+        }
+        h1, h2 {
+            color: #1a535c;
+            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 10px;
+        }
+        h1 {
+            text-align: center;
+        }
+
+        /* 폼 스타일 */
+        .form-container {
+            margin-bottom: 30px;
+            border: 1px solid #ddd;
+            padding: 20px;
+            border-radius: 8px;
+            background-color: #fdfdfd;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box; /* 패딩이 너비를 초과하지 않도록 */
+        }
+        button[type="submit"] {
+            background-color: #1a535c;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+        }
+        button[type="submit"]:hover {
+            background-color: #4ecdc4;
+        }
+
+        /* 질문 목록 스타일 */
+        #question-list {
+            list-style-type: none;
+            padding: 0;
+        }
+        #question-list li {
+            background-color: #f9f9f9;
+            border: 1px solid #eee;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 10px;
+        }
+        #question-list li strong {
+            display: block;
+            font-size: 1.1em;
+            color: #1a535c;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+</head>
+<body>
+    <div class="container">
+        <h1>FastAPI 질문 게시판</h1>
+        
+        <form id="question-form" class="form-container">
+            <h2>새 질문 등록하기</h2>
+            <div class="form-group">
+                <label for="subject">제목:</label>
+                <input type="text" id="subject" required>
+            </div>
+            <div class="form-group">
+                <label for="content">내용:</label>
+                <textarea id="content" rows="4" required></textarea>
+            </div>
+            <button type="submit">등록하기</button>
+        </form>
+        
+        <div class="list-container">
+            <h2>질문 목록</h2>
+            <ul id="question-list">
+                </ul>
+        </div>
+    </div>
+    <script>
+        // API 기본 주소
+        const API_URL = "http://127.0.0.1:8000/api/question/";
+
+        // HTML 요소 가져오기
+        const questionList = document.getElementById("question-list");
+        const questionForm = document.getElementById("question-form");
+        const subjectInput = document.getElementById("subject");
+        const contentInput = document.getElementById("content");
+
+        /**
+         * (GET) 질문 목록을 API에서 가져와 화면에 표시
+         */
+        async function fetchQuestions() {
+            try {
+                const response = await fetch(API_URL);
+                const questions = await response.json();
+                
+                // 목록 비우기
+                questionList.innerHTML = ""; 
+                
+                // 목록 채우기
+                questions.forEach(q => {
+                    const li = document.createElement("li");
+                    const createDate = new Date(q.create_date).toLocaleString('ko-KR');
+                    
+                    li.innerHTML = `
+                        <strong>${q.subject}</strong>
+                        <p>${q.content}</p>
+                        <small>ID: ${q.id} | 작성일: ${createDate}</small>
+                    `;
+                    questionList.appendChild(li);
+                });
+
+            } catch (error) {
+                console.error("질문 목록 로딩 실패:", error);
+                questionList.innerHTML = "<li>질문 목록을 불러오는 데 실패했습니다.</li>";
+            }
+        }
+
+        /**
+         * (POST) 새 질문을 API로 전송
+         */
+        async function submitQuestion(event) {
+            // 폼의 기본 동작(페이지 새로고침) 방지
+            event.preventDefault(); 
+            
+            const subject = subjectInput.value;
+            const content = contentInput.value;
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        subject: subject,
+                        content: content
+                    })
+                });
+
+                if (response.status === 204) {
+                    // 성공 (204 No Content)
+                    // 폼 비우기
+                    subjectInput.value = "";
+                    contentInput.value = "";
+                    // 목록 새로고침
+                    fetchQuestions(); 
+                } else {
+                    // 기타 오류
+                    alert("질문 등록에 실패했습니다.");
+                }
+
+            } catch (error) {
+                console.error("질문 등록 실패:", error);
+                alert("서버 통신 중 오류가 발생했습니다.");
+            }
+        }
+
+        // --- 스크립트 실행 ---
+        
+        // 1. 페이지가 로드되면 즉시 질문 목록 가져오기
+        document.addEventListener("DOMContentLoaded", fetchQuestions);
+        
+        // 2. 폼 제출(submit) 이벤트에 submitQuestion 함수 연결
+        questionForm.addEventListener("submit", submitQuestion);
+
+    </script>
+    </body>
+</html>
